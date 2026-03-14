@@ -3,7 +3,7 @@ exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
 
   if (event.httpMethod === 'OPTIONS') {
