@@ -156,7 +156,7 @@ const DataStore = {
   // User Profile
   async getUser() {
     const raw = await LocalStorageAdapter.getItem('ft_user');
-    return raw ? JSON.parse(raw) : null;
+    try { return raw ? JSON.parse(raw) : null; } catch(e) { return null; }
   },
   async saveUser(userObj) {
     await LocalStorageAdapter.setItem('ft_user', JSON.stringify(userObj));
@@ -193,7 +193,7 @@ const DataStore = {
   // Custom Weights (Progressive Overload)
   async getCustomWeights() {
     const raw = await LocalStorageAdapter.getItem('ft_weights');
-    return raw ? JSON.parse(raw) : {};
+    try { return raw ? JSON.parse(raw) : {}; } catch(e) { return {}; }
   },
   async saveCustomWeights(weights) {
     await LocalStorageAdapter.setItem('ft_weights', JSON.stringify(weights));
@@ -202,7 +202,7 @@ const DataStore = {
   // Workout Plan
   async getWorkoutPlan() {
     const raw = await LocalStorageAdapter.getItem('ft_workout_plan');
-    return raw ? JSON.parse(raw) : null;
+    try { return raw ? JSON.parse(raw) : null; } catch(e) { return null; }
   },
   async saveWorkoutPlan(plan) {
     await LocalStorageAdapter.setItem('ft_workout_plan', JSON.stringify(plan));
@@ -247,7 +247,7 @@ const DataStore = {
   // Nutrition (Today's macros and meals)
   async getNutritionLog(dateStr) {
     const raw = await LocalStorageAdapter.getItem(`ft_nutri_${dateStr}`);
-    return raw ? JSON.parse(raw) : { meals: [], totalCals: 0, totalPro: 0, totalCarb: 0, totalFat: 0 };
+    try { return raw ? JSON.parse(raw) : { meals: [], totalCals: 0, totalPro: 0, totalCarb: 0, totalFat: 0 }; } catch(e) { return { meals: [], totalCals: 0, totalPro: 0, totalCarb: 0, totalFat: 0 }; }
   },
   async saveNutritionLog(dateStr, data) {
     await LocalStorageAdapter.setItem(`ft_nutri_${dateStr}`, JSON.stringify(data));
@@ -255,7 +255,7 @@ const DataStore = {
   
   async getActivityLog(dateStr) {
     const raw = await LocalStorageAdapter.getItem(`ft_act_${dateStr}`);
-    return raw ? JSON.parse(raw) : { water: 0, steps: 0, sleep: 0 };
+    try { return raw ? JSON.parse(raw) : { water: 0, steps: 0, sleep: 0 }; } catch(e) { return { water: 0, steps: 0, sleep: 0 }; }
   },
   async saveActivityLog(dateStr, data) {
     await LocalStorageAdapter.setItem(`ft_act_${dateStr}`, JSON.stringify(data));
@@ -264,7 +264,7 @@ const DataStore = {
   // Meal Plan (Generated per day)
   async getMealPlan(dateStr) {
     const raw = await LocalStorageAdapter.getItem(`ft_mealplan_${dateStr}`);
-    return raw ? JSON.parse(raw) : null;
+    try { return raw ? JSON.parse(raw) : null; } catch(e) { return null; }
   },
   async saveMealPlan(dateStr, plan) {
     await LocalStorageAdapter.setItem(`ft_mealplan_${dateStr}`, JSON.stringify(plan));
@@ -273,16 +273,18 @@ const DataStore = {
   // Chat History
   async getChatHistory() {
     const raw = await LocalStorageAdapter.getItem('ft_chat');
-    return raw ? JSON.parse(raw) : [
+    try { return raw ? JSON.parse(raw) : [
       { role: 'assistant', content: window.miniappI18n.t('data.chat_intro') }
-    ];
+    ]; } catch(e) { return [
+      { role: 'assistant', content: window.miniappI18n.t('data.chat_intro') }
+    ]; }
   },
   async saveChatHistory(history) {
     await LocalStorageAdapter.setItem('ft_chat', JSON.stringify(history));
   },
   async getMeasurements() {
     const raw = await LocalStorageAdapter.getItem('ft_measurements');
-    return raw ? JSON.parse(raw) : { dates: [], chest: [], waist: [], hips: [], biceps: [] };
+    try { return raw ? JSON.parse(raw) : { dates: [], chest: [], waist: [], hips: [], biceps: [] }; } catch(e) { return { dates: [], chest: [], waist: [], hips: [], biceps: [] }; }
   },
   async addMeasurement(dateStr, data) {
     const m = await this.getMeasurements();
@@ -303,7 +305,7 @@ const DataStore = {
   },
   async getRecipes() {
     const raw = await LocalStorageAdapter.getItem('ft_recipes');
-    return raw ? JSON.parse(raw) : [];
+    try { return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
   },
   async saveRecipes(recipes) {
     await LocalStorageAdapter.setItem('ft_recipes', JSON.stringify(recipes));
@@ -357,7 +359,7 @@ const Logic = {
 
   async generateWorkoutPlan(user) {
     const exercises = getExercises();
-    let availableIds = exercises.filter(ex => user.equipment.includes(ex.equipment)).map(ex => ex.id);
+    let availableIds = exercises.filter(ex => (user.equipment || ['bodyweight']).includes(ex.equipment)).map(ex => ex.id);
     if (availableIds.length < 3) availableIds = exercises.map(e => e.id); // fallback
 
     const plan = {

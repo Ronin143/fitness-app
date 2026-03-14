@@ -5,6 +5,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const headerTitle = document.getElementById('header-title');
   const navBtns = document.querySelectorAll('.nav-btn');
 
+  // Check if JS files loaded correctly (prevents infinite loading on missing files)
+  if (typeof DataStore === 'undefined' || typeof Views === 'undefined' || typeof Logic === 'undefined') {
+    viewContainer.innerHTML = `<div class="p-5 text-red-500 text-center mt-10"><b class="text-xl">⚠️ Критическая ошибка</b><br><br>Не удалось загрузить скрипты приложения.<br>Пожалуйста, убедитесь, что вы загрузили папку <b>js/</b> на GitHub.</div>`;
+    return;
+  }
+
   const getTitle = (route) => {
     switch (route) {
       case 'onboarding': return window.miniappI18n.t('router.onboarding');
@@ -22,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     current: '',
     async navigate(route, params = {}) {
       this.current = route;
-      const user = await DataStore.getUser();
+      let user = null; try { user = await DataStore.getUser(); } catch(e) { console.error('Corrupt user data', e); localStorage.clear(); }
 
       // Clear container and show loading
       viewContainer.innerHTML = `<div class="flex items-center justify-center h-full text-appAccent"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-appAccent"></div></div>`;
@@ -71,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (route === 'dashboard') {
           let weights = await DataStore.getCustomWeights();
           // Force update if the database has less than 10 weights (old version had only ~4)
-          if(Object.keys(weights).length < 10) {
+          if(!weights || Object.keys(weights).length < 10) {
             weights = await Logic.estimateWeightsWithAI(user);
             await DataStore.saveCustomWeights(weights);
             const newPlan = await Logic.generateWorkoutPlan(user);
