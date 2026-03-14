@@ -113,16 +113,28 @@
           if (msg.role === 'system') {
             systemInstruction = { parts: { text: msg.content } };
           } else {
-            let textContent = '';
+            let parts = [];
             if (Array.isArray(msg.content)) {
-               textContent = msg.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
+               for (const c of msg.content) {
+                 if (c.type === 'text') parts.push({ text: c.text });
+                 if (c.type === 'file_id' || c.type === 'image_url') {
+                   const base64Data = (c.fileId || c.url || '');
+                   if (base64Data.startsWith('data:image')) {
+                     const mime = base64Data.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+                     const b64 = base64Data.split(',')[1];
+                     parts.push({ inline_data: { mime_type: mime, data: b64 } });
+                   }
+                 }
+               }
             } else {
-               textContent = msg.content;
+               parts.push({ text: msg.content });
             }
-            contents.push({
-              role: msg.role === 'assistant' ? 'model' : 'user',
-              parts: [{ text: textContent }]
-            });
+            if (parts.length > 0) {
+              contents.push({
+                role: msg.role === 'assistant' ? 'model' : 'user',
+                parts: parts
+              });
+            }
           }
         }
 
@@ -130,20 +142,38 @@
         if (systemInstruction) body.system_instruction = systemInstruction;
 
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-          });
-          const data = await res.json();
+          let data = null;
+          let lastError = "Не удалось подключиться к ИИ";
+          // Умный перебор моделей: Google иногда меняет названия для бесплатных ключей
+          const models = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
           
-          if (data.error) throw new Error(data.error.message);
+          for (const modelName of models) {
+            const res = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/\${modelName}:generateContent?key=\${GEMINI_API_KEY}\`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            });
+            data = await res.json();
+            
+            if (data.error) {
+               lastError = data.error.message;
+               // 400 error often happens if model doesn't support images (like gemini-pro)
+               if (lastError.includes('not found') || data.error.code === 404 || data.error.code === 400) {
+                 continue;
+               } else {
+                 throw new Error(lastError);
+               }
+            }
+            break; // Успешно получили ответ!
+          }
+
+          if (!data || data.error) throw new Error(lastError);
           
           let reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
           
           // Очистка от маркдауна, если ИИ вернул JSON
-          if (reply.includes('```')) {
-            reply = reply.replace(/```(json)?/g, '').trim();
+          if (reply.includes('\`\`\`')) {
+            reply = reply.replace(/\`\`\`(json)?/g, '').trim();
           }
 
           return { output: [{ type: 'text', text: reply }] };
@@ -154,7 +184,15 @@
         }
       },
       extractText: (res) => res?.output?.[0]?.text || '',
-      uploadFile: async () => ({ id: 'mock', path: '' }) // Загрузка фото напрямую в браузерной версии временно отключена
+      uploadFile: async (file) => {
+        // Конвертируем картинку в Base64 для отправки напрямую в Gemini API
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve({ id: e.target.result, path: e.target.result });
+          reader.onerror = (e) => reject(e);
+          reader.readAsDataURL(file);
+        });
+      }
     };
 
     // 3. Полифилл для системы переводов (i18n) со встроенным словарем
