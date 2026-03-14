@@ -137,7 +137,16 @@
           }
         }
 
-        const mergedContents = [];\n        for (const c of contents) {\n          if (mergedContents.length > 0 && mergedContents[mergedContents.length - 1].role === c.role) {\n             mergedContents[mergedContents.length - 1].parts.push(...c.parts);\n          } else {\n             mergedContents.push(c);\n          }\n        }\n        const body = { contents: mergedContents };\n        if (systemInstruction) body.system_instruction = systemInstruction;
+        const mergedContents = [];
+        for (const c of contents) {
+          if (mergedContents.length > 0 && mergedContents[mergedContents.length - 1].role === c.role) {
+             mergedContents[mergedContents.length - 1].parts.push(...c.parts);
+          } else {
+             mergedContents.push(c);
+          }
+        }
+        const body = { contents: mergedContents };
+        if (systemInstruction) body.system_instruction = systemInstruction;
 
         try {
           let data = null;
