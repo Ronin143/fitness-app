@@ -96,20 +96,65 @@
       document.head.appendChild(tgScript);
     }
 
-    // 2. Заглушки для ИИ (чтобы демо работало без бэкенда на GitHub)
+    // 2. Подключение реального API Gemini для GitHub Pages
+    const GEMINI_API_KEY = "AIzaSyBoakIMlav113L8KqrcCM9Lfec5Ph5RjhE"; // <--- ВСТАВЬТЕ ВАШ КЛЮЧ СЮДА МЕЖДУ КАВЫЧЕК
+
     window.miniappsAI = window.miniappsAI || {
       callModel: async (args) => {
-        const prompt = JSON.stringify(args.messages || []);
-        if (prompt.includes('Алекс')) {
-          return { output: [{ type: 'text', text: 'Для полноценной работы AI-тренера требуется бэкенд. На GitHub Pages включен базовый демо-режим.' }] };
+        if (!GEMINI_API_KEY) {
+          return { output: [{ type: 'text', text: 'Пожалуйста, добавьте ваш API ключ Gemini в код (файл index.html, строка GEMINI_API_KEY).' }] };
         }
-        if (prompt.includes('Оцени реалистичный') || prompt.toLowerCase().includes('оцени реалистичный')) {
-           return { output: [{ type: 'text', text: '{}' }] };
+
+        let systemInstruction = null;
+        const contents = [];
+
+        // Форматируем сообщения под требования Google Gemini API
+        for (const msg of args.messages) {
+          if (msg.role === 'system') {
+            systemInstruction = { parts: { text: msg.content } };
+          } else {
+            let textContent = '';
+            if (Array.isArray(msg.content)) {
+               textContent = msg.content.filter(c => c.type === 'text').map(c => c.text).join(' ');
+            } else {
+               textContent = msg.content;
+            }
+            contents.push({
+              role: msg.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: textContent }]
+            });
+          }
         }
-        return { output: [{ type: 'text', text: '{"name": "Оффлайн еда", "cals": 250, "p": 15, "f": 10, "c": 25}' }] };
+
+        const body = { contents };
+        if (systemInstruction) body.system_instruction = systemInstruction;
+
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          const data = await res.json();
+          
+          if (data.error) throw new Error(data.error.message);
+          
+          let reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          
+          // Очистка от маркдауна, если ИИ вернул JSON
+          if (reply.includes('```')) {
+            reply = reply.replace(/```(json)?/g, '').trim();
+          }
+
+          return { output: [{ type: 'text', text: reply }] };
+        } catch (e) {
+          console.error("Gemini API Error:", e);
+          const isTechCall = JSON.stringify(args.messages).includes('ТОЛЬКО валидный JSON');
+          return { output: [{ type: 'text', text: isTechCall ? '{}' : 'Ошибка при запросе к Gemini: ' + e.message }] };
+        }
       },
-      extractText: (res) => res.output[0].text,
-      uploadFile: async () => ({ id: 'mock', path: '' })
+      extractText: (res) => res?.output?.[0]?.text || '',
+      uploadFile: async () => ({ id: 'mock', path: '' }) // Загрузка фото напрямую в браузерной версии временно отключена
     };
 
     // 3. Полифилл для системы переводов (i18n)
