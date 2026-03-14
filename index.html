@@ -110,7 +110,7 @@
 
         for (const msg of args.messages) {
           if (msg.role === 'system') {
-            systemInstruction = { parts: { text: msg.content } };
+            systemInstruction = { parts: [{ text: msg.content }] };
           } else {
             let parts = [];
             if (Array.isArray(msg.content)) {
@@ -137,13 +137,12 @@
           }
         }
 
-        const body = { contents };
-        if (systemInstruction) body.system_instruction = systemInstruction;
+        const mergedContents = [];\n        for (const c of contents) {\n          if (mergedContents.length > 0 && mergedContents[mergedContents.length - 1].role === c.role) {\n             mergedContents[mergedContents.length - 1].parts.push(...c.parts);\n          } else {\n             mergedContents.push(c);\n          }\n        }\n        const body = { contents: mergedContents };\n        if (systemInstruction) body.system_instruction = systemInstruction;
 
         try {
           let data = null;
           let lastError = "Не удалось подключиться к ИИ";
-          const models = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
+          const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
           
           for (const modelName of models) {
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`, {
@@ -155,7 +154,7 @@
             
             if (data.error) {
                lastError = data.error.message;
-               if (lastError.includes('not found') || data.error.code === 404 || data.error.code === 400) {
+               if (lastError.includes('not found') || data.error.code === 404) {
                  continue;
                } else {
                  throw new Error(lastError);
